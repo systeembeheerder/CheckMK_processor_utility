@@ -1,0 +1,53 @@
+#!/usr/bin/python
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+### Filename should match the output of the agent plugin
+#<<<processor_utility>>>
+#0 14
+#1 19
+
+#Default warning and critical values in %
+processor_utility_default_levels = (60, 80)
+
+def inventory_processor_utility(info):
+    if len(info) >= 1:
+        return [(None, "processor_utility_default_levels")]
+
+
+
+def check_processor_utility(_no_item, params, info):
+    warn, crit   = params
+    perfdata     = []
+    infotext     = '10 min avg: '
+    now = time.time()
+    maxu = None
+    for line in sorted(info):
+        utilisation = int(line[1])
+        numa        = int(line[0])
+        utility     = 'numa%s' % numa
+        perfdata.append(('numa%s' % numa, utilisation, None, None, 0, 100))
+        avg10 = int(get_average("processor_utility2.%d.avg" % numa, now, utilisation, 10))
+        if ( maxu is None or avg10 > maxu):
+            maxu = avg10
+        utility     = 'numa%s_10' % numa
+        infotext  += 'NUMA node %d: %d%%, ' % (numa, avg10)
+    perfdata=tuple(perfdata)
+    infotext = infotext[:-2]
+    if maxu > warn:
+        status = 1
+    elif maxu > crit:
+        status = 2
+    else:
+        status = 0
+    if ( status > 0):
+        infotext += " (warn/crit at %s%%/%s%%)" % (warn,crit)
+    yield status, infotext, perfdata
+
+
+
+
+check_info["processor_utility"] = {
+    'check_function':        check_processor_utility,
+    'inventory_function':    inventory_processor_utility,
+    'service_description':   'Processor Utility',
+    'has_perfdata':          True,
+}
